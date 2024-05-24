@@ -11,10 +11,12 @@ import 'leaflet/dist/leaflet.css'
 import cat from '../assets/images/cat.png'
 import dog from '../assets/images/dog.png'
 import elephant from '../assets/images/elephant.webp'
+import owner from '../assets/images/owner.png' // Add an image for the owner
 import '../CustomMarker.css' // Import CSS file for custom marker styles
 
 const MapComponent = () => {
   const [centerPosition, setCenterPosition] = useState([16.1622, 74.8298]) // Initial center position [latitude, longitude]
+  const [ownerPosition, setOwnerPosition] = useState([16.161, 74.83]) // Initial owner position
   const [markers, setMarkers] = useState([
     // Initial markers for dog
     [[16.1622, 74.8298]],
@@ -23,6 +25,9 @@ const MapComponent = () => {
     // Initial markers for elephant
     [[16.1585, 74.8278]],
   ])
+  const [circleRadius, setCircleRadius] = useState(1000) // Initial circle radius in meters
+  const [outsideCircle, setOutsideCircle] = useState([]) // Track animals outside the circle
+  const [distances, setDistances] = useState([]) // Track distances between owner and animals
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -35,7 +40,7 @@ const MapComponent = () => {
         ],
       ])
       setMarkers(newMarkers)
-    }, 3000)
+    }, 10000)
 
     return () => clearInterval(interval)
   }, [markers])
@@ -63,6 +68,54 @@ const MapComponent = () => {
     calculateCenter()
   }, [markers])
 
+  useEffect(() => {
+    // Check if any animal is outside the circle and calculate distances
+    const checkAnimalsOutsideCircle = () => {
+      const newOutsideCircle = []
+      const newDistances = markers.map((animalMarkers, animalIndex) => {
+        const lastPosition = animalMarkers[animalMarkers.length - 1]
+        const distance = calculateDistance(centerPosition, lastPosition)
+        const distanceToOwner = calculateDistance(ownerPosition, lastPosition)
+        const currentTime = new Date().toLocaleTimeString()
+        const currentDate = new Date().toLocaleDateString()
+        newOutsideCircle.push({
+          name: getAnimalName(animalIndex),
+          position: lastPosition,
+          time: currentTime,
+          date: currentDate,
+          icon: getAnimalIcon(animalIndex),
+          outside: distance > circleRadius,
+        })
+        return {
+          name: getAnimalName(animalIndex),
+          distanceMeters: distanceToOwner.toFixed(2),
+          distanceKm: (distanceToOwner / 1000).toFixed(2),
+        }
+      })
+      setOutsideCircle(newOutsideCircle)
+      setDistances(newDistances)
+    }
+
+    checkAnimalsOutsideCircle()
+  }, [markers, centerPosition, circleRadius, ownerPosition])
+
+  const calculateDistance = (position1, position2) => {
+    const [lat1, lng1] = position1
+    const [lat2, lng2] = position2
+    const R = 6371e3 // Earth radius in meters
+    const φ1 = (lat1 * Math.PI) / 180
+    const φ2 = (lat2 * Math.PI) / 180
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180
+    const Δλ = ((lng2 - lng1) * Math.PI) / 180
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+    return R * c
+  }
+
   const circleOptions = {
     color: 'blue', // Color of the circle outline
     fillColor: 'lightblue', // Color of the circle fill
@@ -70,54 +123,179 @@ const MapComponent = () => {
   }
 
   return (
-    <MapContainer
-      center={centerPosition}
-      zoom={15}
-      style={{ height: '500px', width: '100%' }}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      {/* Map through markers array for each animal */}
-      {markers.map((animalMarkers, animalIndex) => (
-        <React.Fragment key={animalIndex}>
-          {/* Lines connecting consecutive markers for each animal */}
-          <Polyline
-            positions={animalMarkers}
-            color={getLineColor(animalIndex)}
+    <div className="container">
+      <div className="map-container">
+        <MapContainer
+          center={centerPosition}
+          zoom={15}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-          {/* Markers for each animal */}
-          {animalMarkers.map((position, markerIndex) => (
-            <Marker
-              key={markerIndex}
-              position={position}
-              icon={getMarkerIcon(markers, animalIndex, markerIndex)}
-            >
-              {/* Popup content */}
-              <Popup>
-                Animal: {getAnimalName(animalIndex)} <br /> Position:{' '}
-                {position[0]}, {position[1]}
-              </Popup>
-            </Marker>
+          {/* Map through markers array for each animal */}
+          {markers.map((animalMarkers, animalIndex) => (
+            <React.Fragment key={animalIndex}>
+              {/* Lines connecting consecutive markers for each animal */}
+              <Polyline
+                positions={animalMarkers}
+                color={getLineColor(animalIndex)}
+              />
+              {/* Markers for each animal */}
+              {animalMarkers.map((position, markerIndex) => (
+                <Marker
+                  key={markerIndex}
+                  position={position}
+                  icon={getMarkerIcon(markers, animalIndex, markerIndex)}
+                >
+                  {/* Popup content */}
+                  <Popup>
+                    Animal: {getAnimalName(animalIndex)} <br /> Position:{' '}
+                    {position[0]}, {position[1]}
+                  </Popup>
+                </Marker>
+              ))}
+            </React.Fragment>
           ))}
-        </React.Fragment>
-      ))}
-      {/* Big circle around all markers */}
-      <Circle
-        center={centerPosition}
-        radius={calculateRadius(markers)}
-        pathOptions={circleOptions}
-      />
-    </MapContainer>
+          {/* Big circle around all markers */}
+          <Circle
+            center={centerPosition}
+            radius={circleRadius}
+            pathOptions={circleOptions}
+          />
+          {/* Owner marker */}
+          <Marker
+            position={ownerPosition}
+            icon={L.icon({
+              iconUrl: owner,
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
+            })}
+          >
+            <Popup>Owner</Popup>
+          </Marker>
+        </MapContainer>
+        <div style={{ marginTop: '10px' }}>
+          <label>
+            Circle Radius (meters): {circleRadius}
+            <input
+              type="range"
+              min="100"
+              max="5000"
+              value={circleRadius}
+              onChange={(e) => setCircleRadius(e.target.value)}
+              style={{ marginLeft: '10px' }}
+            />
+          </label>
+        </div>
+      </div>
+      <div className="info-container">
+        <div className="distances-container">
+          <div className="owner-info">
+            <img src={owner} alt="Owner" className="owner-icon" />
+            <div className="distances-details">
+              {distances.map((distance, index) => (
+                <p key={index}>
+                  {distance.name}: {distance.distanceMeters} meters (
+                  {distance.distanceKm} km)
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="outside-circle-container">
+          {outsideCircle.map((animal, index) => (
+            <div
+              key={index}
+              className={`animal-info ${animal.outside ? 'outside' : ''}`}
+            >
+              <img
+                src={animal.icon}
+                alt={animal.name}
+                className="animal-icon"
+              />
+              <div className="animal-details">
+                <p>
+                  <strong>{animal.name}</strong>
+                </p>
+                <p>
+                  Position: {animal.position[0]}, {animal.position[1]}
+                </p>
+                <p>Time: {animal.time}</p>
+                <p>Date: {animal.date}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <style jsx>{`
+        .container {
+          display: flex;
+          height: 100vh;
+        }
+        .map-container {
+          flex: 70%;
+          height: 100%;
+        }
+        .info-container {
+          flex: 30%;
+          padding: 10px;
+          overflow-y: auto;
+        }
+        .distances-container {
+          margin-bottom: 20px;
+          text-align: center;
+        }
+        .owner-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+        .owner-icon {
+          width: 50px;
+          height: 50px;
+          margin-bottom: 10px;
+        }
+        .distances-details {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .distances-details p {
+          margin: 0;
+        }
+        .outside-circle-container {
+          margin-top: 20px;
+        }
+        .animal-info {
+          display: flex;
+          align-items: center;
+          border: 1px solid #ccc;
+          padding: 10px;
+          margin-bottom: 10px;
+          border-radius: 5px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .animal-info.outside {
+          background-color: red;
+        }
+        .animal-icon {
+          width: 50px;
+          height: 50px;
+          margin-right: 10px;
+        }
+        .animal-details {
+          display: flex;
+          flex-direction: column;
+        }
+        .animal-details p {
+          margin: 0;
+        }
+      `}</style>
+    </div>
   )
-}
-
-// Function to calculate the radius of the circle that includes all markers
-const calculateRadius = (markers) => {
-  const latLngs = markers.flat().map((marker) => L.latLng(marker[0], marker[1]))
-  const bounds = L.latLngBounds(latLngs)
-  return bounds.getNorthEast().distanceTo(bounds.getSouthWest()) / 2
 }
 
 // Function to get animal name based on index
@@ -134,7 +312,20 @@ const getAnimalName = (index) => {
   }
 }
 
-// Function to get marker icon for each animal
+// Function to get animal icon based on index
+const getAnimalIcon = (index) => {
+  switch (index) {
+    case 0:
+      return dog
+    case 1:
+      return cat
+    case 2:
+      return elephant
+    default:
+      return null
+  }
+}
+
 // Function to get marker icon for each animal
 const getMarkerIcon = (markers, animalIndex, markerIndex) => {
   // Check if it's the current marker or previous markers
