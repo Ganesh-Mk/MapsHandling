@@ -1,14 +1,14 @@
 /* CustomMarker.css */
 .custom-marker {
-  width: 40px; /* Size of the marker */
-  height: 40px;
+  width: 20px; /* Size of the marker */
+  height: 20px;
   background-color: rgba(
     255,
     255,
     255,
     0.5
   ); /* Light transparent background color */
-  border: 2px solid #000; /* Black border */
+  border: 1px solid #000; /* Black border */
   border-radius: 50%; /* Circular shape */
   display: flex;
   justify-content: center;

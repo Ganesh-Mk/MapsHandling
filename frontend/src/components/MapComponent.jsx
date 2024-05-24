@@ -35,7 +35,7 @@ const MapComponent = () => {
         ],
       ])
       setMarkers(newMarkers)
-    }, 5000)
+    }, 3000)
 
     return () => clearInterval(interval)
   }, [markers])
@@ -92,7 +92,7 @@ const MapComponent = () => {
             <Marker
               key={markerIndex}
               position={position}
-              icon={getMarkerIcon(animalIndex)}
+              icon={getMarkerIcon(markers, animalIndex, markerIndex)}
             >
               {/* Popup content */}
               <Popup>
@@ -135,28 +135,35 @@ const getAnimalName = (index) => {
 }
 
 // Function to get marker icon for each animal
-const getMarkerIcon = (index) => {
-  switch (index) {
-    case 0:
-      return L.icon({
-        iconUrl: dog,
-        iconSize: [32, 32], // Adjust size as needed
-        iconAnchor: [16, 16], // Center the icon
-      })
-    case 1:
-      return L.icon({
-        iconUrl: cat,
-        iconSize: [32, 32], // Adjust size as needed
-        iconAnchor: [16, 16], // Center the icon
-      })
-    case 2:
-      return L.icon({
-        iconUrl: elephant,
-        iconSize: [32, 32], // Adjust size as needed
-        iconAnchor: [16, 16], // Center the icon
-      })
-    default:
-      return null
+// Function to get marker icon for each animal
+const getMarkerIcon = (markers, animalIndex, markerIndex) => {
+  // Check if it's the current marker or previous markers
+  if (markerIndex === markers[animalIndex].length - 1) {
+    switch (animalIndex) {
+      case 0:
+        return L.icon({
+          iconUrl: dog,
+          iconSize: [32, 32], // Adjust size as needed
+          iconAnchor: [16, 16], // Center the icon
+        })
+      case 1:
+        return L.icon({
+          iconUrl: cat,
+          iconSize: [32, 32], // Adjust size as needed
+          iconAnchor: [16, 16], // Center the icon
+        })
+      case 2:
+        return L.icon({
+          iconUrl: elephant,
+          iconSize: [32, 32], // Adjust size as needed
+          iconAnchor: [16, 16], // Center the icon
+        })
+      default:
+        return null
+    }
+  } else {
+    // Return custom CSS marker for previous markers
+    return L.divIcon({ className: 'custom-marker' })
   }
 }
 
