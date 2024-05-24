@@ -16,7 +16,7 @@ import '../CustomMarker.css' // Import CSS file for custom marker styles
 
 const MapComponent = () => {
   const [centerPosition, setCenterPosition] = useState([16.1622, 74.8298]) // Initial center position [latitude, longitude]
-  const [ownerPosition, setOwnerPosition] = useState([16.161, 74.83]) // Initial owner position
+  const [ownerPosition, setOwnerPosition] = useState(null) // Initial owner position
   const [markers, setMarkers] = useState([
     // Initial markers for dog
     [[16.1622, 74.8298]],
@@ -28,6 +28,19 @@ const MapComponent = () => {
   const [circleRadius, setCircleRadius] = useState(1000) // Initial circle radius in meters
   const [outsideCircle, setOutsideCircle] = useState([]) // Track animals outside the circle
   const [distances, setDistances] = useState([]) // Track distances between owner and animals
+
+  useEffect(() => {
+    // Request user's location
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        setOwnerPosition([latitude, longitude])
+      },
+      (error) => {
+        console.error('Error getting user location:', error)
+      },
+    )
+  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -46,36 +59,15 @@ const MapComponent = () => {
   }, [markers])
 
   useEffect(() => {
-    // Calculate the center of all markers
-    const calculateCenter = () => {
-      const latitudes = []
-      const longitudes = []
-      markers.forEach((animalMarkers) => {
-        animalMarkers.forEach((marker) => {
-          latitudes.push(marker[0])
-          longitudes.push(marker[1])
-        })
-      })
-      const minLat = Math.min(...latitudes)
-      const maxLat = Math.max(...latitudes)
-      const minLng = Math.min(...longitudes)
-      const maxLng = Math.max(...longitudes)
-      const centerLat = (minLat + maxLat) / 2
-      const centerLng = (minLng + maxLng) / 2
-      setCenterPosition([centerLat, centerLng])
-    }
-
-    calculateCenter()
-  }, [markers])
-
-  useEffect(() => {
     // Check if any animal is outside the circle and calculate distances
     const checkAnimalsOutsideCircle = () => {
       const newOutsideCircle = []
       const newDistances = markers.map((animalMarkers, animalIndex) => {
         const lastPosition = animalMarkers[animalMarkers.length - 1]
         const distance = calculateDistance(centerPosition, lastPosition)
-        const distanceToOwner = calculateDistance(ownerPosition, lastPosition)
+        const distanceToOwner = ownerPosition
+          ? calculateDistance(ownerPosition, lastPosition)
+          : null
         const currentTime = new Date().toLocaleTimeString()
         const currentDate = new Date().toLocaleDateString()
         newOutsideCircle.push({
@@ -88,8 +80,10 @@ const MapComponent = () => {
         })
         return {
           name: getAnimalName(animalIndex),
-          distanceMeters: distanceToOwner.toFixed(2),
-          distanceKm: (distanceToOwner / 1000).toFixed(2),
+          distanceMeters: distanceToOwner ? distanceToOwner.toFixed(2) : null,
+          distanceKm: distanceToOwner
+            ? (distanceToOwner / 1000).toFixed(2)
+            : null,
         }
       })
       setOutsideCircle(newOutsideCircle)
@@ -165,16 +159,18 @@ const MapComponent = () => {
             pathOptions={circleOptions}
           />
           {/* Owner marker */}
-          <Marker
-            position={ownerPosition}
-            icon={L.icon({
-              iconUrl: owner,
-              iconSize: [32, 32],
-              iconAnchor: [16, 16],
-            })}
-          >
-            <Popup>Owner</Popup>
-          </Marker>
+          {ownerPosition && (
+            <Marker
+              position={ownerPosition}
+              icon={L.icon({
+                iconUrl: owner,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+              })}
+            >
+              <Popup>Owner</Popup>
+            </Marker>
+          )}
         </MapContainer>
         <div style={{ marginTop: '10px' }}>
           <label>
@@ -195,12 +191,13 @@ const MapComponent = () => {
           <div className="owner-info">
             <img src={owner} alt="Owner" className="owner-icon" />
             <div className="distances-details">
-              {distances.map((distance, index) => (
-                <p key={index}>
-                  {distance.name}: {distance.distanceMeters} meters (
-                  {distance.distanceKm} km)
-                </p>
-              ))}
+              {ownerPosition &&
+                distances.map((distance, index) => (
+                  <p key={index}>
+                    {distance.name}: {distance.distanceMeters} meters (
+                    {distance.distanceKm} km)
+                  </p>
+                ))}
             </div>
           </div>
         </div>
